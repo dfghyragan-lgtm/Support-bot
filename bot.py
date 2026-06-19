@@ -5,6 +5,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 import json
 import os
 import random
+import threading
+import requests
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +22,7 @@ CREATOR_ID = 8432323388
 CHAT_ID = -1002753124436
 EXAMPLE_APPLICATION = "https://t.me/c/2945439331/605"
 APPLICATION_LINK = "https://t.me/+92SODWh2fc41NTdi"
+RENDER_URL = "https://support-bot-dwl0.onrender.com"
 
 def load_json(filename, default):
     if os.path.exists(filename):
@@ -78,7 +81,7 @@ async def message_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == 'private':
         keyboard = [[InlineKeyboardButton("🆘 Поддержка", callback_data="support")]]
-        await update.message.reply_text("👋 Привет! Я бот-администратор чата.\n\nНажмите «Поддержка» чтобы написать администраторам.", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text("👋 Привет! Я бот-администратор.\nНажмите «Поддержка» чтобы написать администраторам.", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
         await help_command(update, context)
 
@@ -161,20 +164,35 @@ async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     message_text = update.message.text
     user_data = context.user_data
+    
+    if update.message.reply_to_message and (is_admin(user_id) or user_id == CREATOR_ID):
+        reply_text = update.message.reply_to_message.text or ""
+        if "ЖАЛОБА #" in reply_text or "📩" in reply_text:
+            try:
+                if "ЖАЛОБА #" in reply_text: cid = reply_text.split("ЖАЛОБА #")[1].split("\n")[0].strip()
+                else: cid = reply_text.split("#")[1].split("\n")[0].strip()
+                complaints = load_json(COMPLAINTS_FILE, {})
+                if cid in complaints:
+                    await context.bot.send_message(chat_id=complaints[cid]["user_id"], text=f"📩 Администратор:\n{message_text}")
+                    await update.message.reply_text("✅ Ответ отправлен!")
+                    return
+            except: pass
+    
     if user_data.get('waiting_for_complaint'):
         complaints = load_json(COMPLAINTS_FILE, {})
         cid = str(len(complaints)+1)
         complaints[cid] = {"user_id":user_id,"username":update.effective_user.first_name,"text":message_text,"status":"open","admin_id":None}
         save_json(COMPLAINTS_FILE, complaints)
-        await update.message.reply_text("✅ Отправлено!")
+        await update.message.reply_text("✅ Отправлено! Администраторы скоро ответят.")
         user_data['waiting_for_complaint'] = False
         admins = load_json(ADMINS_FILE, [CREATOR_ID])
         kb = [[InlineKeyboardButton("🔧 Заняться", callback_data=f"take_{cid}")]]
         for aid in admins:
             if aid != user_id:
-                try: await context.bot.send_message(chat_id=aid, text=f"📩 ЖАЛОБА #{cid}\nОт: {update.effective_user.first_name}\n\n{message_text}", reply_markup=InlineKeyboardMarkup(kb))
+                try: await context.bot.send_message(chat_id=aid, text=f"📩 НОВАЯ ЖАЛОБА #{cid}\nОт: {update.effective_user.first_name}\n\n{message_text}", reply_markup=InlineKeyboardMarkup(kb))
                 except: pass
         return
+    
     chats = load_json(CHATS_FILE, {})
     if str(user_id) in chats:
         complaints = load_json(COMPLAINTS_FILE, {})
@@ -189,17 +207,14 @@ async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     try: await context.bot.send_message(chat_id=aid, text=f"📩 {update.effective_user.first_name}:\n{message_text}")
                     except: pass
             return
+    
     if not (is_admin(user_id) or user_id==CREATOR_ID):
         kb = [[InlineKeyboardButton("🆘 Поддержка", callback_data="support")]]
         await update.message.reply_text("Нажмите кнопку для обращения.", reply_markup=InlineKeyboardMarkup(kb))
 # Бан
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
-        return
-    if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
-        return
+    if not is_admin(update.effective_user.id): return
+    if not update.message.reply_to_message: return
     user = update.message.reply_to_message.from_user
     if user.id == CREATOR_ID: return
     if is_admin(user.id) and update.effective_user.id != CREATOR_ID: return
@@ -297,25 +312,35 @@ async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_json(ADMINS_FILE, admins)
     await update.message.reply_text(f"✅ {new_admin.first_name} теперь администратор!")
 
+# Снятие админа
+async def remove_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != CREATOR_ID:
+        await update.message.reply_text("❌ Только создатель может снимать администраторов!"); return
+    if not update.message.reply_to_message: return
+    target = update.message.reply_to_message.from_user
+    admins = load_json(ADMINS_FILE, [CREATOR_ID])
+    if target.id == CREATOR_ID: return
+    if target.id not in admins:
+        await update.message.reply_text(f"❌ {target.first_name} не администратор!"); return
+    admins.remove(target.id)
+    save_json(ADMINS_FILE, admins)
+    await update.message.reply_text(f"✅ {target.first_name} больше не администратор!")
+
 # Брак
 async def marry(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
-        return
-    from_user = update.effective_user
-    to_user = update.message.reply_to_message.from_user
-    if from_user.id == to_user.id: return
+    if not update.message.reply_to_message: return
+    a, b = update.effective_user, update.message.reply_to_message.from_user
+    if a.id == b.id: return
     m = load_json(MARRIAGES_FILE, {})
-    if str(from_user.id) in m: await update.message.reply_text(f"❌ Вы уже в браке с {m[str(from_user.id)]['name']}!"); return
-    if str(to_user.id) in m: await update.message.reply_text(f"❌ {to_user.first_name} уже в браке!"); return
+    if str(a.id) in m: await update.message.reply_text(f"❌ Вы уже в браке с {m[str(a.id)]['name']}!"); return
+    if str(b.id) in m: await update.message.reply_text(f"❌ {b.first_name} уже в браке!"); return
     p = load_json(PROPOSALS_FILE, {})
-    p[str(to_user.id)] = {"from_id":from_user.id,"from_name":from_user.first_name,"to_name":to_user.first_name}
+    p[str(b.id)] = {"from_id":a.id,"from_name":a.first_name,"to_name":b.first_name}
     save_json(PROPOSALS_FILE, p)
-    kb = [[InlineKeyboardButton("💍 Согласиться", callback_data=f"accept_marry_{from_user.id}"),
-           InlineKeyboardButton("❌ Отказаться", callback_data=f"decline_marry_{from_user.id}")]]
-    await update.message.reply_text(f"💍 {from_user.first_name} предложил(а) {to_user.first_name} вступить в брак!\n{to_user.first_name}, нажмите кнопку:", reply_markup=InlineKeyboardMarkup(kb))
+    kb = [[InlineKeyboardButton("💍 Согласиться", callback_data=f"accept_marry_{a.id}"),
+           InlineKeyboardButton("❌ Отказаться", callback_data=f"decline_marry_{a.id}")]]
+    await update.message.reply_text(f"💍 {a.first_name} предложил(а) {b.first_name} вступить в брак!\n{b.first_name}, нажмите кнопку:", reply_markup=InlineKeyboardMarkup(kb))
 
-# Кнопки брака
 async def marry_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -329,9 +354,9 @@ async def marry_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             m[str(fid)] = {"partner_id":uid,"name":p[str(uid)]["to_name"]}
             m[str(uid)] = {"partner_id":fid,"name":p[str(uid)]["from_name"]}
             save_json(MARRIAGES_FILE, m)
+            await query.message.edit_text(f"💒 {p[str(uid)]['from_name']} и {p[str(uid)]['to_name']} теперь в браке! 🎉💍")
             del p[str(uid)]
             save_json(PROPOSALS_FILE, p)
-            await query.message.edit_text(f"💒 {p[str(uid)]['from_name']} и {p[str(uid)]['to_name']} теперь в браке! 🎉💍")
     elif data.startswith("decline_marry_"):
         p = load_json(PROPOSALS_FILE, {})
         if str(uid) in p:
@@ -397,19 +422,18 @@ async def who(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎂 {t.first_name} сегодня именинник!", f"🤡 {t.first_name} сегодня главный клоун!",
         f"💤 {t.first_name} сегодня проспал всё!", f"🦸 {t.first_name} сегодня спасает мир!",
         f"🎮 {t.first_name} сегодня задрот дня!", f"🍔 {t.first_name} сегодня съел больше всех!",
-        f"💸 {t.first_name} сегодня платит за всех!", f"😴 {t.first_name} сегодня самый сонный!",
-        f"🎉 {t.first_name} сегодня душа компании!", f"🚗 {t.first_name} сегодня таксист!"]
+        f"💸 {t.first_name} сегодня платит за всех!", f"🎉 {t.first_name} сегодня душа компании!"]
     await update.message.reply_text(random.choice(actions))
 
-# Шар судьбы
+# Шар
 async def ball(update: Update, context: ContextTypes.DEFAULT_TYPE):
     question = " ".join(context.args) if context.args else "Без вопроса"
-    answers = ["✅ Да", "❌ Нет", "🤔 Возможно", "🌟 Определённо да", "💔 Не сейчас", "🎱 Спроси позже", "👍 Хорошие шансы", "👎 Плохие шансы"]
+    answers = ["✅ Да","❌ Нет","🤔 Возможно","🌟 Определённо да","💔 Не сейчас","🎱 Спроси позже","👍 Хорошие шансы","👎 Плохие шансы"]
     await update.message.reply_text(f"🎱 {question}\n{random.choice(answers)}")
 
 # Монетка
 async def coin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🪙 Монетка: {random.choice(['Орёл','Решка'])}!")
+    await update.message.reply_text(f"🪙 {random.choice(['Орёл','Решка'])}!")
 
 # Выбери
 async def choose(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -442,13 +466,13 @@ async def admin_recruitment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤖 КОМАНДЫ БОТА:\n\n"
-        "👑 Админ — выдать админа (ответом)\n"
-        "👮 Админка, Бан, Разбан, Мут, Размут, Пред, Очистка, Выходные\n"
-        "🎉 Обнять, Поцеловать, Укусить, Брак, Развод, Семья\n"
-        "🎮 Кто, Шар, Монетка, Выбери\n"
-        "📢 Помощь, Правила, Набор\n"
+        "👑 Создатель: Админ, Снять — выдать/снять админа (ответом)\n"
+        "👮 Админы: Админка, Бан, Разбан, Мут, Размут, Пред, Очистка, Выходные\n"
+        "🎉 Развлечения: Обнять, Поцеловать, Укусить, Брак, Развод, Семья\n"
+        "🎮 Игры: Кто, Шар, Монетка, Выбери\n"
+        "📢 Общие: Помощь, Правила, Набор\n"
         "🆘 ЛС: кнопка Поддержка\n\n"
-        "ℹ️ Бот отзывается на: Бот"
+        "ℹ️ Бот отзывается на: Бот, Боты, Bot"
     )
 
 # Правила
@@ -478,12 +502,11 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Приятного общения! Будьте уважительны как к админам, так и к простым участникам и не нарушайте правила!"
     )
 
-# Обработчик команд
+# Обработчик команд в чате
 async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text: return
     msg = update.message.text.lower().strip()
     
-    # Отзыв на "бот"
     if msg in ["бот", "боты", "bot"]:
         await update.message.reply_text("👋 Я здесь! Напишите «Помощь» чтобы увидеть список команд.")
         return
@@ -500,6 +523,7 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.args = msg.split()[1:] if len(msg.split())>1 else []
         await clear_messages(update, context)
     elif msg=="админ": await add_admin(update, context)
+    elif msg=="снять": await remove_admin(update, context)
     elif msg.startswith("бан"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []
         await ban(update, context)
@@ -524,12 +548,21 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg.startswith("выбери"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []
         await choose(update, context)
+
 def main():
     application = Application.builder().token(TOKEN).build()
     
+    # Самопинг каждые 5 минут
+    def self_ping():
+        while True:
+            try: requests.get(RENDER_URL, timeout=10)
+            except: pass
+            time.sleep(300)
+    threading.Thread(target=self_ping, daemon=True).start()
+    
     # Автозапуск судных выходных
-    application.job_queue.run_daily(send_weekend_message, time=time(hour=12, minute=0, tzinfo=MOSCOW_TZ), days=(5,), chat_id=CHAT_ID, name="weekend_sat_auto")
-    application.job_queue.run_daily(send_weekend_message, time=time(hour=12, minute=0, tzinfo=MOSCOW_TZ), days=(6,), chat_id=CHAT_ID, name="weekend_sun_auto")
+    application.job_queue.run_daily(send_weekend_message, time=time(hour=12, minute=0, tzinfo=MOSCOW_TZ), days=(5,), chat_id=CHAT_ID, name="weekend_sat")
+    application.job_queue.run_daily(send_weekend_message, time=time(hour=12, minute=0, tzinfo=MOSCOW_TZ), days=(6,), chat_id=CHAT_ID, name="weekend_sun")
     
     # Обработчики
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_member))
@@ -553,6 +586,7 @@ def main():
     application.add_handler(CommandHandler("clear", clear_messages))
     application.add_handler(CommandHandler("admin", admin_recruitment))
     application.add_handler(CommandHandler("admin_panel", admin_panel))
+    application.add_handler(CommandHandler("remove_admin", remove_admin))
     application.add_handler(CallbackQueryHandler(support_button, pattern="^support$"))
     application.add_handler(CallbackQueryHandler(admin_buttons, pattern="^(take_|close_)"))
     application.add_handler(CallbackQueryHandler(admin_menu_buttons, pattern="^admin_"))
@@ -563,7 +597,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, private_message))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.ChatType.PRIVATE, text_commands), group=2)
     
-    print("✅ Бот запущен!")
+    print("✅ Бот запущен! (с самопингом каждые 5 минут)")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
