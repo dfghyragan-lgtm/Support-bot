@@ -9,7 +9,7 @@ import random
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "8240444405:AAEo_DpaFXmG-N6NbcOCW5PU2vqut9DRRnM"
+TOKEN = "8240444405:AAGulbNBUspFbtIFAu55XDqmMTLBQ4uF17g"
 MOSCOW_TZ = timezone(timedelta(hours=3))
 ADMINS_FILE = "admins.json"
 COMPLAINTS_FILE = "complaints.json"
@@ -52,7 +52,7 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         await update.message.reply_text(welcome_text)
 
-# Фильтр ботов
+# Фильтр ботов - удаление сообщений от других ботов
 async def filter_bots(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == 'private':
         return
@@ -119,27 +119,30 @@ async def message_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except:
             pass
 
-# Старт
+# Команда Старт
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == 'private':
         keyboard = [[InlineKeyboardButton("🆘 Поддержка", callback_data="support")]]
         await update.message.reply_text(
-            "👋 Привет! Я бот-помощник чата.\n\n"
-            "Если у вас есть жалоба или вопрос — нажмите кнопку «Поддержка».",
+            "👋 Привет! Я бот-администратор чата.\n\n"
+            "Если у вас есть жалоба или вопрос — нажмите кнопку «Поддержка» и напишите ваше обращение.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
     else:
         await help_command(update, context)
 
-# Кнопка поддержки
+# Обработчик кнопки поддержки
 async def support_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if query.data == "support":
-        await query.message.reply_text("📝 Напишите ваше сообщение. Администраторы увидят его и ответят.")
+        await query.message.reply_text(
+            "📝 Напишите вашу жалобу или вопрос одним сообщением.\n"
+            "Администраторы рассмотрят обращение в ближайшее время."
+        )
         context.user_data['waiting_for_complaint'] = True
 
-# Кнопки админа для жалоб
+# Обработчик кнопок администратора (жалобы)
 async def admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -167,10 +170,12 @@ async def admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await context.bot.send_message(
                     chat_id=complaints[complaint_id]["user_id"],
-                    text="✅ Администратор взял обращение в работу. Пишите ваш вопрос."
+                    text="✅ Администратор взял ваше обращение в работу.\n\nОжидайте ответа."
                 )
             except:
                 pass
+            
+            await query.message.reply_text("✅ Вы взяли обращение в работу! Чтобы ответить - просто ответьте на это сообщение.")
             
             new_keyboard = [[InlineKeyboardButton("✅ Завершить", callback_data=f"close_{complaint_id}")]]
             await query.message.edit_reply_markup(reply_markup=InlineKeyboardMarkup(new_keyboard))
@@ -193,13 +198,14 @@ async def admin_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 await context.bot.send_message(
                     chat_id=user_complaint_id,
-                    text="✅ Ваше обращение рассмотрено и закрыто. Спасибо!"
+                    text="✅ Ваше обращение рассмотрено и закрыто.\n\nСпасибо за обращение!"
                 )
             except:
                 pass
             await query.message.edit_reply_markup(reply_markup=None)
+            await query.message.reply_text("✅ Обращение завершено!")
 
-# Кнопки админ-меню
+# Обработчик кнопок админ-меню
 async def admin_menu_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -208,18 +214,18 @@ async def admin_menu_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     
     responses = {
-        "admin_ban": "Для бана ответьте на сообщение и напишите: Бан [время]",
-        "admin_mute": "Для мута ответьте на сообщение и напишите: Мут [время]",
-        "admin_warn": "Для предупреждения ответьте на сообщение и напишите: Пред [причина]",
-        "admin_unban": "Для разбана ответьте на сообщение и напишите: Разбан",
-        "admin_unmute": "Для размута ответьте на сообщение и напишите: Размут",
+        "admin_ban": "Для бана ответьте на сообщение пользователя и напишите: Бан [время]",
+        "admin_mute": "Для мута ответьте на сообщение пользователя и напишите: Мут [время]",
+        "admin_warn": "Для предупреждения ответьте на сообщение пользователя и напишите: Пред [причина]",
+        "admin_unban": "Для разбана ответьте на сообщение пользователя и напишите: Разбан",
+        "admin_unmute": "Для размута ответьте на сообщение пользователя и напишите: Размут",
         "admin_clear": "Для очистки напишите: Очистка [количество]"
     }
     
     if query.data in responses:
         await query.message.reply_text(responses[query.data])
 
-# Админ-панель
+# Команда Админка - панель управления
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id) and update.effective_user.id != CREATOR_ID:
         await update.message.reply_text("❌ У вас нет прав!")
@@ -238,7 +244,7 @@ async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# Очистка сообщений
+# Команда очистки сообщений
 async def clear_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id) and update.effective_user.id != CREATOR_ID:
         await update.message.reply_text("❌ У вас нет прав!")
@@ -265,7 +271,7 @@ async def clear_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка: {str(e)}")
 
-# ЛС обработчик
+# Обработчик текстовых сообщений в ЛС
 async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != 'private':
         return
@@ -273,6 +279,26 @@ async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     message_text = update.message.text
     user_data = context.user_data
+    
+    # Если админ отвечает на сообщение с жалобой
+    if update.message.reply_to_message and (is_admin(user_id) or user_id == CREATOR_ID):
+        reply_text = update.message.reply_to_message.text or ""
+        if "ЖАЛОБА #" in reply_text or "НОВОЕ ОБРАЩЕНИЕ #" in reply_text:
+            try:
+                complaint_id = reply_text.split("#")[1].split("\n")[0].strip()
+                complaints = load_json(COMPLAINTS_FILE, {})
+                if complaint_id in complaints:
+                    user_complaint_id = complaints[complaint_id]["user_id"]
+                    await context.bot.send_message(
+                        chat_id=user_complaint_id,
+                        text=f"📩 Ответ от администратора:\n\n{message_text}"
+                    )
+                    await update.message.reply_text(f"✅ Ответ отправлен пользователю!")
+                else:
+                    await update.message.reply_text("❌ Обращение не найдено!")
+            except:
+                await update.message.reply_text("❌ Не удалось отправить ответ!")
+            return
     
     # Если пользователь ждёт отправки жалобы
     if user_data.get('waiting_for_complaint'):
@@ -283,7 +309,8 @@ async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "username": update.effective_user.first_name,
             "text": message_text,
             "status": "open",
-            "admin_id": None
+            "admin_id": None,
+            "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         save_json(COMPLAINTS_FILE, complaints)
         await update.message.reply_text("✅ Ваше обращение отправлено администраторам. Ожидайте ответа.")
@@ -297,7 +324,10 @@ async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 try:
                     await context.bot.send_message(
                         chat_id=admin_id,
-                        text=f"📩 НОВОЕ ОБРАЩЕНИЕ #{complaint_id}\n\nОт: {update.effective_user.first_name}\nID: {user_id}\n\nТекст: {message_text}",
+                        text=f"📩 НОВОЕ ОБРАЩЕНИЕ #{complaint_id}\n\n"
+                             f"От: {update.effective_user.first_name}\n"
+                             f"ID: {user_id}\n\n"
+                             f"Текст: {message_text}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 except:
@@ -341,21 +371,22 @@ async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Нажмите кнопку «Поддержка» чтобы написать администраторам.",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-# Бан
+# Команда для бана
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
+        await update.message.reply_text("❌ У вас нет прав для использования этой команды!")
         return
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите забанить!")
         return
     
-    user = update.message.reply_to_message.from_user
-    if user.id == CREATOR_ID:
-        await update.message.reply_text("❌ Нельзя забанить создателя!")
+    banned_user = update.message.reply_to_message.from_user
+    
+    if banned_user.id == CREATOR_ID:
+        await update.message.reply_text("❌ Нельзя забанить создателя бота!")
         return
-    if is_admin(user.id) and update.effective_user.id != CREATOR_ID:
-        await update.message.reply_text("❌ Нельзя забанить другого администратора!")
+    if is_admin(banned_user.id) and update.effective_user.id != CREATOR_ID:
+        await update.message.reply_text("❌ Вы не можете забанить другого администратора!")
         return
     
     ban_time = 0
@@ -384,7 +415,7 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
             until_date = datetime.now() + timedelta(minutes=ban_time)
             await context.bot.ban_chat_member(
                 chat_id=update.effective_chat.id,
-                user_id=user.id,
+                user_id=banned_user.id,
                 until_date=until_date
             )
             if ban_time >= 10080:
@@ -395,50 +426,51 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 t = f"{ban_time // 60} часов"
             else:
                 t = f"{ban_time} минут"
-            await update.message.reply_text(f"🚫 {user.first_name} забанен на {t}!")
+            await update.message.reply_text(f"🚫 Пользователь {banned_user.first_name} забанен на {t}!")
         else:
             await context.bot.ban_chat_member(
                 chat_id=update.effective_chat.id,
-                user_id=user.id
+                user_id=banned_user.id
             )
-            await update.message.reply_text(f"🚫 {user.first_name} забанен навсегда!")
+            await update.message.reply_text(f"🚫 Пользователь {banned_user.first_name} забанен навсегда!")
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+        await update.message.reply_text(f"❌ Ошибка при бане: {str(e)}")
 
-# Разбан
+# Команда для разбана
 async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
+        await update.message.reply_text("❌ У вас нет прав для использования этой команды!")
         return
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите разбанить!")
         return
     
-    user = update.message.reply_to_message.from_user
+    unbanned_user = update.message.reply_to_message.from_user
     try:
         await context.bot.unban_chat_member(
             chat_id=update.effective_chat.id,
-            user_id=user.id
+            user_id=unbanned_user.id
         )
-        await update.message.reply_text(f"✅ {user.first_name} разбанен!")
+        await update.message.reply_text(f"✅ Пользователь {unbanned_user.first_name} разбанен!")
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+        await update.message.reply_text(f"❌ Ошибка при разбане: {str(e)}")
 
-# Мут
+# Команда для мута
 async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
+        await update.message.reply_text("❌ У вас нет прав для использования этой команды!")
         return
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите замутить!")
         return
     
-    user = update.message.reply_to_message.from_user
-    if user.id == CREATOR_ID:
-        await update.message.reply_text("❌ Нельзя замутить создателя!")
+    muted_user = update.message.reply_to_message.from_user
+    
+    if muted_user.id == CREATOR_ID:
+        await update.message.reply_text("❌ Нельзя замутить создателя бота!")
         return
-    if is_admin(user.id) and update.effective_user.id != CREATOR_ID:
-        await update.message.reply_text("❌ Нельзя замутить другого администратора!")
+    if is_admin(muted_user.id) and update.effective_user.id != CREATOR_ID:
+        await update.message.reply_text("❌ Вы не можете замутить другого администратора!")
         return
     
     mute_time = 60
@@ -474,28 +506,28 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await context.bot.restrict_chat_member(
             chat_id=update.effective_chat.id,
-            user_id=user.id,
+            user_id=muted_user.id,
             permissions=ChatPermissions(can_send_messages=False),
             until_date=datetime.now() + timedelta(minutes=mute_time)
         )
-        await update.message.reply_text(f"🔇 {user.first_name} замучен на {t}!")
+        await update.message.reply_text(f"🔇 Пользователь {muted_user.first_name} замучен на {t}!")
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+        await update.message.reply_text(f"❌ Ошибка при муте: {str(e)}")
 
-# Размут
+# Команда для размута
 async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
+        await update.message.reply_text("❌ У вас нет прав для использования этой команды!")
         return
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите размутить!")
         return
     
-    user = update.message.reply_to_message.from_user
+    unmuted_user = update.message.reply_to_message.from_user
     try:
         await context.bot.restrict_chat_member(
             chat_id=update.effective_chat.id,
-            user_id=user.id,
+            user_id=unmuted_user.id,
             permissions=ChatPermissions(
                 can_send_messages=True,
                 can_send_audios=True,
@@ -512,33 +544,53 @@ async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 can_pin_messages=False
             )
         )
-        await update.message.reply_text(f"🔊 {user.first_name} размучен!")
+        await update.message.reply_text(f"🔊 Пользователь {unmuted_user.first_name} размучен!")
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка: {str(e)}")
+        await update.message.reply_text(f"❌ Ошибка при размуте: {str(e)}")
 
-# Предупреждение
+# Команда для предупреждения
 async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
+        await update.message.reply_text("❌ У вас нет прав для использования этой команды!")
         return
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которому хотите выдать предупреждение!")
         return
     
-    user = update.message.reply_to_message.from_user
+    warned_user = update.message.reply_to_message.from_user
     reason = " ".join(context.args) if context.args else "Нарушение правил"
     
     await update.message.reply_text(
         f"⚠️ ПРЕДУПРЕЖДЕНИЕ\n\n"
-        f"Пользователь: @{user.username or user.first_name}\n"
+        f"Пользователь: @{warned_user.username or warned_user.first_name}\n"
         f"Причина: {reason}\n\n"
         f"При повторных нарушениях — бан!"
     )
 
-# Брак
+# Команда для выдачи администратора
+async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != CREATOR_ID:
+        await update.message.reply_text("❌ Только создатель бота может выдавать администраторов!")
+        return
+    if not update.message.reply_to_message:
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которому хотите выдать администратора!")
+        return
+    
+    new_admin = update.message.reply_to_message.from_user
+    admins = load_json(ADMINS_FILE, [CREATOR_ID])
+    
+    if new_admin.id in admins:
+        await update.message.reply_text(f"❌ Пользователь {new_admin.first_name} уже является администратором!")
+        return
+    
+    admins.append(new_admin.id)
+    save_json(ADMINS_FILE, admins)
+    await update.message.reply_text(f"✅ Пользователь {new_admin.first_name} теперь администратор и может использовать все команды бота!")
+
+# Команда "Брак"
 async def marry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, с которым хотите заключить брак!")
         return
     
     from_user = update.effective_user
@@ -566,7 +618,7 @@ async def marry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Поздравляем! 🎉💍"
     )
 
-# Развод
+# Команда "Развод"
 async def divorce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     marriages = load_json(MARRIAGES_FILE, {})
@@ -585,7 +637,7 @@ async def divorce(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(f"💔 {user.first_name} развёлся с {partner_name} 😢")
 
-# Семья
+# Команда "Моя семья"
 async def marriage_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     marriages = load_json(MARRIAGES_FILE, {})
@@ -594,75 +646,46 @@ async def marriage_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"💍 Вы в браке с {marriages[str(user.id)]['name']}")
     else:
         await update.message.reply_text("💔 Вы не в браке")
-
-# Обнять
+# Команда "Обнять"
 async def hug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите обнять!")
         return
     
     from_user = update.effective_user
     to_user = update.message.reply_to_message.from_user
     
-    gifs = [
-        "https://media.giphy.com/media/od5H3PmEG4EVq/giphy.gif",
-        "https://media.giphy.com/media/ZQN9jsRWp1M76/giphy.gif",
-        "https://media.giphy.com/media/wnsgren9NtITS/giphy.gif",
-        "https://media.giphy.com/media/l2QDM9Jnim1YVILXa/giphy.gif",
-        "https://media.giphy.com/media/3o7TKO3AC9oZqVbNQQ/giphy.gif"
-    ]
-    
-    await update.message.reply_animation(
-        animation=random.choice(gifs),
-        caption=f"🫂 {from_user.first_name} обнял(а) {to_user.first_name}!"
-    )
+    emojis = ["🫂", "🤗", "🥰", "💕", "🫶"]
+    await update.message.reply_text(f"{random.choice(emojis)} {from_user.first_name} обнял(а) {to_user.first_name}!")
 
-# Поцеловать
+# Команда "Поцеловать"
 async def kiss(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите поцеловать!")
         return
     
     from_user = update.effective_user
     to_user = update.message.reply_to_message.from_user
     
-    gifs = [
-        "https://media.giphy.com/media/G3va31oEEnIkM/giphy.gif",
-        "https://media.giphy.com/media/12VXIxKaIEarL2/giphy.gif",
-        "https://media.giphy.com/media/jR22gdcPiOLaE/giphy.gif",
-        "https://media.giphy.com/media/bm2O3nXTcKJeU/giphy.gif",
-        "https://media.giphy.com/media/nyGFcsP0kAobm/giphy.gif"
-    ]
-    
-    await update.message.reply_animation(
-        animation=random.choice(gifs),
-        caption=f"💋 {from_user.first_name} поцеловал(а) {to_user.first_name}!"
-    )
+    emojis = ["💋", "😘", "😚", "💏", "❤️"]
+    await update.message.reply_text(f"{random.choice(emojis)} {from_user.first_name} поцеловал(а) {to_user.first_name}!")
 
-# Укусить
+# Команда "Укусить"
 async def bite(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Ответьте на сообщение пользователя!")
+        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя, которого хотите укусить!")
         return
     
     from_user = update.effective_user
     to_user = update.message.reply_to_message.from_user
     
-    gifs = [
-        "https://media.giphy.com/media/l4FGH2AqGg0O4LTkA/giphy.gif",
-        "https://media.giphy.com/media/3o7TKqoVPf7K1M8T9K/giphy.gif",
-        "https://media.giphy.com/media/xT0BKnZ6dO6FCxDtBK/giphy.gif",
-        "https://media.giphy.com/media/3o7TKDx2DvzF3qK6M8/giphy.gif",
-        "https://media.giphy.com/media/3o7TKCUvD4HWzUZ3LW/giphy.gif"
-    ]
-    
-    await update.message.reply_animation(
-        animation=random.choice(gifs),
-        caption=f"🦷 {from_user.first_name} укусил(а) {to_user.first_name}!"
-    )
-# Судные выходные
+    emojis = ["🦷", "😬", "🫦", "😈", "🦊"]
+    await update.message.reply_text(f"{random.choice(emojis)} {from_user.first_name} укусил(а) {to_user.first_name}!")
+
+# Функция для отправки сообщения о судных выходных
 async def send_weekend_message(context: ContextTypes.DEFAULT_TYPE):
     chat_id = context.job.chat_id
+    
     weekend_text = (
         "🎉 СУДНЫЕ ВЫХОДНЫЕ! 🎉\n\n"
         "Простыми словами можно делать всё что угодно, кроме:\n"
@@ -681,13 +704,14 @@ async def send_weekend_message(context: ContextTypes.DEFAULT_TYPE):
         caption=weekend_text
     )
 
-# Планирование судных выходных
+# Функция для планирования судных выходных
 async def schedule_weekend(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("❌ У вас нет прав!")
+        await update.message.reply_text("❌ У вас нет прав для использования этой команды!")
         return
     
     chat_id = update.effective_chat.id
+    
     current_jobs = context.job_queue.jobs()
     for job in current_jobs:
         if job.name and job.name.startswith(f"weekend_{chat_id}"):
@@ -707,9 +731,10 @@ async def schedule_weekend(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=chat_id,
         name=f"weekend_{chat_id}_sun"
     )
+    
     await update.message.reply_text("✅ Судные выходные запланированы! Сообщения будут отправляться в субботу и воскресенье в 12:00 по Москве!")
 
-# Набор в администрацию
+# Команда для набора в администрацию
 async def admin_recruitment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📋 Пример анкеты", url=EXAMPLE_APPLICATION)],
@@ -728,7 +753,7 @@ async def admin_recruitment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# Помощь
+# Команда помощи
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤖 КОМАНДЫ БОТА:\n\n"
@@ -736,11 +761,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Админ — Выдать администратора (ответом на сообщение)\n\n"
         "👮 Для администраторов:\n"
         "Админка — Панель управления\n"
-        "Бан [время] — Забанить (ответом на сообщение)\n"
-        "Разбан — Разбанить (ответом на сообщение)\n"
-        "Мут [время] — Замутить (ответом на сообщение)\n"
-        "Размут — Размутить (ответом на сообщение)\n"
-        "Пред [причина] — Предупреждение (ответом на сообщение)\n"
+        "Бан [время] — Забанить пользователя (ответом на сообщение)\n"
+        "Разбан — Разбанить пользователя (ответом на сообщение)\n"
+        "Мут [время] — Замутить пользователя (ответом на сообщение)\n"
+        "Размут — Размутить пользователя (ответом на сообщение)\n"
+        "Пред [причина] — Выдать предупреждение (ответом на сообщение)\n"
         "Очистка [число] — Удалить сообщения\n"
         "Выходные — Запланировать судные выходные\n\n"
         "⏰ Форматы времени:\n"
@@ -755,7 +780,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Кнопка «Поддержка» — отправить жалобу/вопрос админам"
     )
 
-# Правила
+# Команда правил
 async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🗓 ПРАВИЛА ЧАТА\n\n"
@@ -782,7 +807,7 @@ async def rules(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Приятного общения! Будьте уважительны как к админам, так и к простым участникам и не нарушайте правила!"
     )
 
-# Обработчик команд в чате
+# Функция для обработки текстовых команд без слеша
 async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
@@ -808,7 +833,7 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.args = msg.split()[1:] if len(msg.split()) > 1 else []
         await clear_messages(update, context)
     
-    # Команды с ответом
+    # Команды с ответом на сообщение
     elif msg == "админ":
         await add_admin(update, context)
     elif msg.startswith("бан"):
@@ -834,26 +859,6 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await bite(update, context)
     elif msg == "брак":
         await marry(update, context)
-
-# Выдача админа
-async def add_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != CREATOR_ID:
-        await update.message.reply_text("❌ Только создатель бота может выдавать администраторов!")
-        return
-    if not update.message.reply_to_message:
-        await update.message.reply_text("❌ Используйте эту команду как ответ на сообщение пользователя!")
-        return
-    
-    new_admin = update.message.reply_to_message.from_user
-    admins = load_json(ADMINS_FILE, [CREATOR_ID])
-    
-    if new_admin.id in admins:
-        await update.message.reply_text(f"❌ Пользователь {new_admin.first_name} уже является администратором!")
-        return
-    
-    admins.append(new_admin.id)
-    save_json(ADMINS_FILE, admins)
-    await update.message.reply_text(f"✅ Пользователь {new_admin.first_name} теперь администратор и может использовать все команды бота!")
 
 def main():
     application = Application.builder().token(TOKEN).build()
