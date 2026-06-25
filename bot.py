@@ -458,8 +458,34 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # НАСТРОЙКИ
 async def toggle_rp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if ck not in c:
+            c[ck] = {}
+        c[ck]["enabled"] = True
 
 async def toggle_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    c = load_json(CAPTCHA_FILE, {})
+    ck = str(update.effective_chat.id)
+    m = update.message.text.lower().strip()
+    if m == "+капча":
+        if ck not in c:
+            c[ck] = {}
+        c[ck]["enabled"] = True
+        save_json(CAPTCHA_FILE, c)
+        await update.message.reply_text("✅ Капча включена!")
+    elif m == "-капча":
+        if ck in c:
+            c[ck]["enabled"] = False
+        save_json(CAPTCHA_FILE, c)
+        await update.message.reply_text("❌ Капча выключена!")
+        save_json(CAPTCHA_FILE, c)
+        await update.message.reply_text("✅ Капча включена!")
+    elif m == "-капча":
+        if ck in c:
+            c[ck]["enabled"] = False
+        save_json(CAPTCHA_FILE, c)
+        await update.message.reply_text("❌ Капча выключена!")
     if not is_admin(update.effective_user.id): return
     c = load_json(CAPTCHA_FILE, {})
     ck = str(update.effective_chat.id)
