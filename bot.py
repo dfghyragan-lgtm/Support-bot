@@ -975,7 +975,7 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE, private_message))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.ChatType.PRIVATE, text_commands), group=2)
     PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = "https://support-bot-dwl0.onrender.com"
+    WEBHOOK_URL = "https://support-bot-ftsv.onrender.com"
     print("✅ Бот запущен!")
     application.run_webhook(listen="0.0.0.0", port=PORT, webhook_url=f"{WEBHOOK_URL}/webhook", secret_token="mysecret123")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
