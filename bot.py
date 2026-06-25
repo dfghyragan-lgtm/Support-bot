@@ -842,6 +842,7 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg.startswith("очистка"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []; await clear_messages(update, context)
     elif msg=="выходные": await schedule_weekend(update, context)
+    elif msg in ["судные выходные", "отправить выходные"]: await send_weekend_message(update=update, context=context)
     
     # Брак
     elif msg=="брак": await marry(update, context)
