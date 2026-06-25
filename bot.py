@@ -458,6 +458,21 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # НАСТРОЙКИ
 async def toggle_rp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def toggle_captcha(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id): return
+    c = load_json(CAPTCHA_FILE, {})
+    ck = str(update.effective_chat.id)
+    m = update.message.text.lower().strip()
+    if m == "+капча":
+        if ck not in c: c[ck] = {}
+        c[ck]["enabled"] = True
+        save_json(CAPTCHA_FILE, c)
+        await update.message.reply_text("✅ Капча включена!")
+    elif m == "-капча":
+        if ck in c: c[ck]["enabled"] = False
+        save_json(CAPTCHA_FILE, c)
+        await update.message.reply_text("❌ Капча выключена!")
     if not is_admin(update.effective_user.id): return
     s = load_json(RP_SETTINGS_FILE, {"rp":True,"marriages":True})
     m = update.message.text.lower().strip()
@@ -961,6 +976,7 @@ def main():
     application.add_handler(CommandHandler("rep_minus", rep_minus))
     application.add_handler(CommandHandler("promote", promote))
     application.add_handler(CommandHandler("toggle_rp", toggle_rp))
+    application.add_handler(CommandHandler("toggle_captcha", toggle_captcha))
     application.add_handler(CommandHandler("clear", clear_messages))
     application.add_handler(CommandHandler("admin", admin_recruitment))
     application.add_handler(CommandHandler("admin_panel", admin_panel))
