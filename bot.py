@@ -900,7 +900,7 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg=="бросить": await throw_rp(update, context)
     elif msg=="поднять": await lift(update, context)
 def main():
-    application = Application.builder().token(TOKEN).build()
+    application = Application.builder().token(TOKEN).concurrent_updates(True).build()
     application.job_queue.run_daily(send_weekend_message, time=time(hour=12, minute=0, tzinfo=MOSCOW_TZ), days=(5,), chat_id=CHAT_ID, name="weekend_sat")
     application.job_queue.run_daily(send_weekend_message, time=time(hour=12, minute=0, tzinfo=MOSCOW_TZ), days=(6,), chat_id=CHAT_ID, name="weekend_sun")
     
