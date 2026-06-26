@@ -1030,7 +1030,7 @@ def main():
     PORT = int(os.environ.get("PORT", 8443))
     WEBHOOK_URL = "https://support-bot-ftsv.onrender.com"
     print("✅ Бот запущен!")
-    application.run_webhook(listen="0.0.0.0", port=PORT, url_path="webhook", webhook_url=f"{WEBHOOK_URL}/webhook")
+    application.run_webhook(listen="0.0.0.0", port=PORT, url_path="webhook", webhook_url=f"{WEBHOOK_URL}/webhook", read_timeout=1, write_timeout=1, connect_timeout=1)
 
 if __name__ == '__main__':
     main()
