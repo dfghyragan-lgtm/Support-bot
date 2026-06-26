@@ -191,6 +191,13 @@ async def clear_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"🧹 Удалено {d}!")
     except Exception as e: await update.message.reply_text(f"❌ {str(e)}")
 
+
+async def delete_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.reply_to_message: return
+    try:
+        await update.message.delete()
+        await update.message.reply_to_message.delete()
+    except: pass
 async def private_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type != 'private': return
     uid = update.effective_user.id; mt = update.message.text; ud = context.user_data
