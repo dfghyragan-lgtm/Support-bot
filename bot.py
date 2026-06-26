@@ -13,6 +13,7 @@ TOKEN = "8240444405:AAGulbNBUspFbtIFAu55XDqmMTLBQ4uF17g"
 MOSCOW_TZ = timezone(timedelta(hours=3))
 ADMINS_FILE, COMPLAINTS_FILE, MARRIAGES_FILE, PROPOSALS_FILE = "admins.json", "complaints.json", "marriages.json", "proposals.json"
 CHATS_FILE, STATS_FILE, NICKNAMES_FILE, TITLES_FILE = "active_chats.json", "stats.json", "nicknames.json", "titles.json"
+CAPTCHA_FILE = "captcha.json"
 REP_FILE, PROFILES_FILE, RP_SETTINGS_FILE = "reputation.json", "profiles.json", "rp_settings.json"
 CREATOR_ID, CHAT_ID = 8432323388, -1002753124436
 EXAMPLE_APPLICATION = "https://t.me/c/2945439331/605"
