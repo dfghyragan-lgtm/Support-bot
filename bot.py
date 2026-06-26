@@ -861,6 +861,7 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg.startswith("повысить"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []; await promote(update, context)
     elif msg in ["+рп","-рп","+браки","-браки","+rp","-rp"]: await toggle_rp(update, context)
+    elif msg in ["+капча","-капча"]: await toggle_captcha(update, context)
     
     # Бан
     elif msg.startswith("бан") or msg in ["чс","!ban","!permban"]:
