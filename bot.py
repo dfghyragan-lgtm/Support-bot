@@ -78,6 +78,15 @@ async def welcome_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE)
             try:
                 await context.bot.send_message(
                     chat_id=m.id,
+                    text="👋 Привет! Я помощник чата!\nЭто для системы антибот.\nНажми пожалуйста кнопку чтобы я понял что ты не робот!",
+                    reply_markup=InlineKeyboardMarkup(kb))
+            except: pass
+        else:
+            await update.message.reply_html(f"👋 Добро пожаловать, {get_user_link(m)}!\n\n📜 Правила: без 18+, без рекламы, без оскорблений\n🎉 Судные выходные: Суббота 12:00 - Понедельник 6:00\n\nПриятного общения! 😊")
+            kb = [[InlineKeyboardButton("✅ Я не робот", callback_data=f"captcha_pass_{m.id}")]]
+            try:
+                await context.bot.send_message(
+                    chat_id=m.id,
                     text=f"👋 Привет! Я помощник чата!\nЭто для системы антибот.\nНажми пожалуйста кнопку чтобы я понял что ты не робот!",
                     reply_markup=InlineKeyboardMarkup(kb))
             except: pass
