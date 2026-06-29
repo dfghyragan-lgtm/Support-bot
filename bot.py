@@ -939,18 +939,10 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg.startswith("+ник") or msg.startswith("+ ник"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []; await set_nick(update, context)
     elif msg.startswith("наградить"):
+        context.args = msg.split()[1:] if len(msg.split())>1 else []; await award(update, context)
     elif msg=="снять награду": await remove_award(update, context)
     elif msg=="снять все награды": await remove_all_awards(update, context)
-        context.args = msg.split()[1:] if len(msg.split())>1 else []; await award(update, context)
     elif msg=="!ид": await get_id(update, context)
-    elif msg=="топ репутации": await top_rep(update, context)
-    elif msg in ["стата","статистика","топ"]: await stats(update, context)
-    
-    # Игры
-    elif msg=="кто": await who(update, context)
-    elif msg=="шар":
-        context.args = msg.split()[1:] if len(msg.split())>1 else []; await ball(update, context)
-    elif msg=="монетка": await coin(update, context)
     elif msg.startswith("выбери"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []; await choose(update, context)
     elif msg=="рулетка": await roulette(update, context)
