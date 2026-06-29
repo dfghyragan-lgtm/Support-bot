@@ -440,6 +440,29 @@ async def award(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_json(TITLES_FILE, t)
     await update.message.reply_html(f"🎖 {get_user_link(u)} получает звание «{title}» от {get_user_link(update.effective_user)}!")
 
+
+async def remove_award(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.reply_to_message: return
+    u = update.message.reply_to_message.from_user
+    t = load_json(TITLES_FILE, {})
+    if str(u.id) in t and t[str(u.id)]:
+        removed = t[str(u.id)].pop()
+        save_json(TITLES_FILE, t)
+        await update.message.reply_html(f"✅ Награда «{removed['title']}» снята с {get_user_link(u)}!")
+    else:
+        await update.message.reply_text(f"❌ У {get_display_name(u)} нет наград!")
+
+async def remove_all_awards(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.reply_to_message: return
+    u = update.message.reply_to_message.from_user
+    t = load_json(TITLES_FILE, {})
+    if str(u.id) in t and t[str(u.id)]:
+        count = len(t[str(u.id)])
+        del t[str(u.id)]
+        save_json(TITLES_FILE, t)
+        await update.message.reply_html(f"✅ Снято {count} наград с {get_user_link(u)}!")
+    else:
+        await update.message.reply_text(f"❌ У {get_display_name(u)} нет наград!")
 async def set_nick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args: return
     nick = " ".join(context.args)
@@ -916,6 +939,8 @@ async def text_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif msg.startswith("+ник") or msg.startswith("+ ник"):
         context.args = msg.split()[1:] if len(msg.split())>1 else []; await set_nick(update, context)
     elif msg.startswith("наградить"):
+    elif msg=="снять награду": await remove_award(update, context)
+    elif msg=="снять все награды": await remove_all_awards(update, context)
         context.args = msg.split()[1:] if len(msg.split())>1 else []; await award(update, context)
     elif msg=="!ид": await get_id(update, context)
     elif msg=="топ репутации": await top_rep(update, context)
